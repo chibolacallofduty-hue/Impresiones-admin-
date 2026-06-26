@@ -585,7 +585,9 @@
                         id: pedido.id,
                         hora: pedido.hora,
                         cantidad: pedido.cantidad,
-                        tipoLabel: `${pedido.tipoLabel} (Cliente: ${pedido.cliente}${pedido.telefono ? ' - ' + pedido.telefono : ''})`,
+                        tipoLabel: pedido.tipoLabel,
+                        cliente: pedido.cliente || "",
+                        telefono: pedido.telefono || "",
                         total: pedido.total,
                         pago: pedido.total, 
                         vuelto: 0,
@@ -593,7 +595,10 @@
                         documentoNombre: pedido.documentoNombre || "",
                         listo: pedido.listo || false,
                         creditoUsado: pedido.creditoUsado || 0,
-                        totalSinCredito: pedido.totalSinCredito || (pedido.total + (pedido.creditoUsado || 0))
+                        totalSinCredito: pedido.totalSinCredito || (pedido.total + (pedido.creditoUsado || 0)),
+                        modoImpresion: pedido.modoImpresion || "",
+                        grapado: pedido.grapado || false,
+                        engargolado: pedido.engargolado || false
                     });
                     nuevosContador++;
                     pedido.estado = "Procesado"; 
@@ -902,6 +907,10 @@
                 <div class="detalles">
                     <strong>Cant:</strong> ${v.cantidad} hojas<br>
                     <strong>Tipo:</strong> ${v.tipoLabel}<br>
+                    ${v.cliente ? `<strong>Cliente:</strong> ${v.cliente}${v.telefono ? ' · ' + v.telefono : ''}<br>` : ''}
+                    ${v.modoImpresion ? `<strong>Impresión:</strong> ${v.modoImpresion === 'duplex' ? '📋 Doble cara (Dúplex)' : '📄 Una sola cara (Simplex)'}<br>` : ''}
+                    ${v.grapado ? `<strong>Acabado:</strong> 📌 Grapado<br>` : ''}
+                    ${v.engargolado ? `<strong>Acabado:</strong> 📎 Engargolado<br>` : ''}
                     <strong>Efectivo:</strong> ₡${v.pago.toLocaleString('es-CR')}<br>
                     <strong>Vuelto:</strong> ₡${v.vuelto.toLocaleString('es-CR')}
                 </div>
