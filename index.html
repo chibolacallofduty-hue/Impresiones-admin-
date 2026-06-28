@@ -900,6 +900,7 @@
             ticket.innerHTML = `
                 <button class="btn-delete-individual" onclick="eliminarVoucherIndividual('${v.id}')">×</button>
                 <button class="btn-marcar-listo ${v.listo ? 'activo' : ''}" title="${v.listo ? 'Pedido listo' : 'Marcar como listo'}" onclick="event.stopPropagation(); marcarVoucherListo('${v.id}')">${v.listo ? '✅' : '✔️'}</button>
+                ${v.telefono ? `<button class="btn-whatsapp-cliente" title="Avisar al cliente por WhatsApp" onclick="event.stopPropagation(); avisarClienteWhatsApp('${v.id}')" style="position:absolute; top:8px; right:44px; background:none; border:none; font-size:1.3rem; cursor:pointer; opacity:${v.listo ? '1' : '0.4'};">💬</button>` : ''}
                 <div style="text-align:center; font-weight:bold; font-size:0.8rem; margin-bottom:5px; border-bottom:1px solid var(--border-color); padding-bottom:3px;">${localName}</div>
                 <div><span class="num">Ticket #${v.id}${etiquetaConteo}</span><span class="date">${v.hora}</span></div>
                 <div class="detalles">
@@ -1004,6 +1005,17 @@
         // Encolar y procesar
         _colaListos.push(id);
         procesarColaListos();
+    }
+
+    function avisarClienteWhatsApp(id) {
+        const voucher = historialVouchers.find(v => v.id === id);
+        if (!voucher || !voucher.telefono) return;
+        const nombre = voucher.cliente ? voucher.cliente.split(' ')[0] : 'cliente';
+        const telefono = voucher.telefono.replace(/[^0-9]/g, '');
+        const mensaje = encodeURIComponent(
+            'Hola ' + nombre + ', tu pedido #' + id + ' en Mi Centro de Impresion ya esta listo para retirar! Te esperamos.'
+        );
+        window.open('https://wa.me/506' + telefono + '?text=' + mensaje, '_blank');
     }
 
     function eliminarVoucherIndividual(id) {
