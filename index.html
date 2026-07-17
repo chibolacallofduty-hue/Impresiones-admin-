@@ -433,6 +433,51 @@
         }
         .btn-ajuste-credito.sumar { background: #059669; color: #fff; }
         .btn-ajuste-credito.restar { background: #ef4444; color: #fff; }
+        .btn-borrar-cliente {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.15rem;
+            cursor: pointer;
+            padding: 2px 4px;
+            line-height: 1;
+        }
+        .btn-borrar-cliente:hover { color: #ef4444; }
+
+        .caja-nuevo-cliente {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+        .caja-nuevo-cliente input {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-dark);
+            font-size: 0.85rem;
+            min-width: 0;
+        }
+        .btn-agregar-cliente {
+            background: var(--brand-color);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .fila-cliente.guardado-flash {
+            animation: flashGuardado 0.9s ease;
+        }
+        @keyframes flashGuardado {
+            0% { background: #bbf7d0; }
+            100% { background: var(--card-bg); }
+        }
     </style>
 </head>
 <body>
@@ -458,6 +503,13 @@
             <button class="btn-cerrar-clientes" onclick="cerrarPanelClientes()">×</button>
         </div>
         <input type="text" id="buscarCliente" class="input-buscar-cliente" placeholder="Buscar por nombre..." oninput="renderizarListaClientes()">
+
+        <div class="caja-nuevo-cliente">
+            <input type="text" id="nuevoClienteNombre" placeholder="Nombre">
+            <input type="tel" id="nuevoClienteTelefono" placeholder="Teléfono">
+            <button type="button" class="btn-agregar-cliente" onclick="agregarClienteManual()">+ Agregar</button>
+        </div>
+
         <div id="listaClientes"><div class="empty-msg">Cargando...</div></div>
     </div>
 </div>
@@ -1307,16 +1359,17 @@
             const nombre = nombreDesdeClave(key);
             const telefono = telefonoDesdeClave(key);
             return `
-                <div class="fila-cliente">
+                <div class="fila-cliente" id="fila-${key}">
                     <div class="fila-cliente-info">
                         <div class="fila-cliente-nombre">${nombre}</div>
                         <div class="fila-cliente-datos">${telefono || 'sin teléfono'} · ${c.pedidos || 0} pedido(s)</div>
                     </div>
-                    <div class="fila-cliente-credito">₡${(c.credito || 0).toLocaleString('es-CR')}</div>
+                    <div class="fila-cliente-credito" id="credito-${key}">₡${(c.credito || 0).toLocaleString('es-CR')}</div>
                     <div class="fila-cliente-acciones">
                         <input type="number" class="input-ajuste-credito" id="ajuste-${key}" placeholder="₡" min="0">
                         <button class="btn-ajuste-credito sumar" onclick="ajustarCreditoCliente('${key}', 1)" title="Agregar crédito">+</button>
                         <button class="btn-ajuste-credito restar" onclick="ajustarCreditoCliente('${key}', -1)" title="Quitar crédito">−</button>
+                        <button class="btn-borrar-cliente" onclick="borrarCliente('${key}')" title="Eliminar cliente">🗑️</button>
                     </div>
                 </div>
             `;
@@ -1347,8 +1400,72 @@
             _clientesCache = clientesNube;
             input.value = '';
             renderizarListaClientes();
+
+            // Confirmación visual clara de que sí se guardó
+            const fila = document.getElementById(`fila-${key}`);
+            if (fila) {
+                fila.classList.add('guardado-flash');
+                setTimeout(() => fila.classList.remove('guardado-flash'), 900);
+            }
         } catch (e) {
             alert("No se pudo guardar el ajuste de crédito. Revisá tu conexión.");
+        }
+    }
+
+    async function borrarCliente(key) {
+        const nombre = nombreDesdeClave(key);
+        if (!confirm(`¿Eliminar a "${nombre}" de la lista de clientes? Se borra su historial de pedidos contados y su crédito acumulado. Esto no se puede deshacer.`)) return;
+
+        try {
+            const res = await fetch(`${FIREBASE_URL}/db.json`);
+            const record = await res.json() || {};
+            const esFormatoNuevo = !Array.isArray(record);
+            const pedidosNube = esFormatoNuevo ? (record.pedidos || []) : [];
+            const clientesNube = esFormatoNuevo ? (record.clientes || {}) : {};
+
+            delete clientesNube[key];
+
+            await fetch(`${FIREBASE_URL}/db.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pedidos: pedidosNube, clientes: clientesNube })
+            });
+
+            _clientesCache = clientesNube;
+            renderizarListaClientes();
+        } catch (e) {
+            alert("No se pudo eliminar al cliente. Revisá tu conexión.");
+        }
+    }
+
+    async function agregarClienteManual() {
+        const nombre = document.getElementById('nuevoClienteNombre').value.trim();
+        const telefono = document.getElementById('nuevoClienteTelefono').value.trim();
+        if (!nombre) { alert("Escribí al menos el nombre del cliente."); return; }
+
+        const key = getClienteKey(nombre, telefono);
+
+        try {
+            const res = await fetch(`${FIREBASE_URL}/db.json`);
+            const record = await res.json() || {};
+            const esFormatoNuevo = !Array.isArray(record);
+            const pedidosNube = esFormatoNuevo ? (record.pedidos || []) : [];
+            const clientesNube = esFormatoNuevo ? (record.clientes || {}) : {};
+
+            if (!clientesNube[key]) clientesNube[key] = { pedidos: 0, credito: 0 };
+
+            await fetch(`${FIREBASE_URL}/db.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pedidos: pedidosNube, clientes: clientesNube })
+            });
+
+            _clientesCache = clientesNube;
+            document.getElementById('nuevoClienteNombre').value = '';
+            document.getElementById('nuevoClienteTelefono').value = '';
+            renderizarListaClientes();
+        } catch (e) {
+            alert("No se pudo agregar al cliente. Revisá tu conexión.");
         }
     }
 
