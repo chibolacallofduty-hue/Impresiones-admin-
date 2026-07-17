@@ -1389,6 +1389,8 @@
     // ── PANEL DE CLIENTES ─────────────────────────────────────────
     let _clientesCache = {};
 
+    let _clientesSSE = null;
+
     async function abrirPanelClientes() {
         const overlay = document.getElementById('overlayClientes');
         overlay.classList.add('visible');
@@ -1403,10 +1405,27 @@
         }
         renderizarListaClientes();
         document.getElementById('buscarCliente').focus();
+
+        // Mantener el panel conectado en tiempo real mientras esté abierto: si
+        // cambia algo (un pedido nuevo suma un punto, otro dispositivo hace un
+        // ajuste, etc.), la lista se actualiza sola sin cerrar y volver a abrir.
+        if (_clientesSSE) _clientesSSE.close();
+        _clientesSSE = new EventSource(`${FIREBASE_URL}/db.json`);
+        const refrescarPanel = async () => {
+            try {
+                const res = await fetch(`${FIREBASE_URL}/db.json`);
+                const record = await res.json() || {};
+                _clientesCache = (Array.isArray(record) ? {} : (record.clientes || {}));
+                renderizarListaClientes();
+            } catch (e) {}
+        };
+        _clientesSSE.addEventListener('put', refrescarPanel);
+        _clientesSSE.addEventListener('patch', refrescarPanel);
     }
 
     function cerrarPanelClientes() {
         document.getElementById('overlayClientes').classList.remove('visible');
+        if (_clientesSSE) { _clientesSSE.close(); _clientesSSE = null; }
     }
 
     function renderizarListaClientes() {
