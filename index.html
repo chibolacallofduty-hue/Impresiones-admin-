@@ -328,6 +328,111 @@
             .print-active { position: absolute; left: 0; top: 0; width: 80mm; border: none; background: white; color: black; }
             .btn-print-ticket, .btn-delete-individual, .contenedor-descargas { display: none !important; }
         }
+
+        /* ── PANEL DE CLIENTES ─────────────────────────────────── */
+        .btn-clientes {
+            background-color: #7c3aed;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-clientes:hover { background-color: #6d28d9; }
+
+        .overlay-clientes {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 100;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 30px 15px;
+            overflow-y: auto;
+        }
+        .overlay-clientes.visible { display: flex; }
+
+        .panel-clientes {
+            background: var(--panel-bg);
+            color: var(--text-dark);
+            border-radius: 14px;
+            width: 100%;
+            max-width: 560px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        .panel-clientes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .panel-clientes-header h2 { margin: 0; font-size: 1.15rem; }
+        .btn-cerrar-clientes {
+            background: none;
+            border: none;
+            font-size: 1.4rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .input-buscar-cliente {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-dark);
+            font-size: 0.95rem;
+            margin-bottom: 14px;
+            box-sizing: border-box;
+        }
+        .fila-cliente {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .fila-cliente-info { flex: 1; min-width: 140px; }
+        .fila-cliente-nombre { font-weight: 700; font-size: 0.92rem; }
+        .fila-cliente-datos { font-size: 0.78rem; color: var(--text-muted); }
+        .fila-cliente-credito {
+            font-weight: 800;
+            color: #7c3aed;
+            font-size: 0.88rem;
+            white-space: nowrap;
+        }
+        .fila-cliente-acciones {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .input-ajuste-credito {
+            width: 64px;
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--panel-bg);
+            color: var(--text-dark);
+            font-size: 0.82rem;
+        }
+        .btn-ajuste-credito {
+            border: none;
+            border-radius: 6px;
+            padding: 6px 9px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.82rem;
+        }
+        .btn-ajuste-credito.sumar { background: #059669; color: #fff; }
+        .btn-ajuste-credito.restar { background: #ef4444; color: #fff; }
     </style>
 </head>
 <body>
@@ -342,7 +447,19 @@
     
     <div class="caja-total-box">Ventas Hoy: <span id="montoCaja">₡0</span></div>
     
-    <button class="btn-theme" onclick="cambiarModo()"> Cambiar Vista</button>
+    <button class="btn-clientes" onclick="abrirPanelClientes()">👥 Clientes</button>
+    <button class="btn-theme" onclick="cambiarModo()">🌓 Cambiar Vista</button>
+</div>
+
+<div class="overlay-clientes" id="overlayClientes" onclick="if(event.target===this) cerrarPanelClientes()">
+    <div class="panel-clientes">
+        <div class="panel-clientes-header">
+            <h2>👥 Tus Clientes</h2>
+            <button class="btn-cerrar-clientes" onclick="cerrarPanelClientes()">×</button>
+        </div>
+        <input type="text" id="buscarCliente" class="input-buscar-cliente" placeholder="Buscar por nombre..." oninput="renderizarListaClientes()">
+        <div id="listaClientes"><div class="empty-msg">Cargando...</div></div>
+    </div>
 </div>
 
 <div class="window-laptop">
@@ -520,6 +637,23 @@
         }
         if (!record) record = {};
         let pedidosNube = Array.isArray(record) ? record : (record.pedidos || []);
+
+        // Reflejar en los tickets ya sincronizados si el cliente canceló el pedido
+        let huboCambioCancelado = false;
+        pedidosNube.forEach(p => {
+            if (p.cancelado) {
+                const v = historialVouchers.find(x => x.id === p.id);
+                if (v && !v.cancelado) {
+                    v.cancelado = true;
+                    huboCambioCancelado = true;
+                }
+            }
+        });
+        if (huboCambioCancelado) {
+            try { localStorage.setItem('historialVouchers', JSON.stringify(historialVouchers)); } catch (e) {}
+            renderizarVouchers();
+        }
+
         let pendientes = pedidosNube.filter(p => p.estado === "Pendiente");
         const badge = document.getElementById('badgePedidos');
         const btnNube = document.getElementById('btnNubePrincipal');
@@ -591,6 +725,9 @@
                         vuelto: 0,
                         documentoUrl: pedido.documentoUrl || "",
                         documentoNombre: pedido.documentoNombre || "",
+                        detalleCopias: pedido.detalleCopias || "",
+                        codigoReferido: pedido.codigoReferido || "",
+                        cancelado: pedido.cancelado || false,
                         listo: pedido.listo || false,
                         creditoUsado: pedido.creditoUsado || 0,
                         totalSinCredito: pedido.totalSinCredito || (pedido.total + (pedido.creditoUsado || 0)),
@@ -897,11 +1034,26 @@
                 ? `<div style="color:#7c3aed; font-size:0.82rem; font-weight:700; margin-top:4px;"> Crédito usado: -₡${v.creditoUsado.toLocaleString('es-CR')} <span style="color:var(--text-muted); font-weight:400;">(antes ₡${(v.totalSinCredito || v.total + v.creditoUsado).toLocaleString('es-CR')})</span></div>`
                 : '';
 
+            const copiasHTML = v.detalleCopias
+                ? `<div style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;"> ${v.detalleCopias}</div>`
+                : '';
+
+            const referidoHTML = v.codigoReferido
+                ? `<div style="font-size:0.78rem; color:#ea580c; font-weight:700; margin-top:2px;"> Código de referido: ${v.codigoReferido}</div>`
+                : '';
+
+            const cintaCanceladoHTML = v.cancelado
+                ? `<div style="background:#ef4444; color:#fff; font-weight:800; text-align:center; padding:4px; border-radius:6px; margin-bottom:6px; font-size:0.85rem;">❌ PEDIDO CANCELADO POR EL CLIENTE</div>`
+                : '';
+
+            if (v.cancelado) ticket.style.opacity = "0.65";
+
             ticket.innerHTML = `
                 <button class="btn-delete-individual" onclick="eliminarVoucherIndividual('${v.id}')">×</button>
                 <button class="btn-marcar-listo ${v.listo ? 'activo' : ''}" title="${v.listo ? 'Pedido listo' : 'Marcar como listo'}" onclick="event.stopPropagation(); marcarVoucherListo('${v.id}')">${v.listo ? '✅' : '✔️'}</button>
                 ${v.telefono ? `<button class="btn-whatsapp-cliente" title="Avisar al cliente por WhatsApp" onclick="event.stopPropagation(); avisarClienteWhatsApp('${v.id}')" style="position:absolute; top:8px; right:44px; background:none; border:none; font-size:1.3rem; cursor:pointer; opacity:${v.listo ? '1' : '0.4'};">💬</button>` : ''}
                 <div style="text-align:center; font-weight:bold; font-size:0.8rem; margin-bottom:5px; border-bottom:1px solid var(--border-color); padding-bottom:3px;">${localName}</div>
+                ${cintaCanceladoHTML}
                 <div><span class="num">Ticket #${v.id}${etiquetaConteo}</span><span class="date">${v.hora}</span></div>
                 <div class="detalles">
                     <strong>Cant:</strong> ${v.cantidad} hojas<br>
@@ -915,6 +1067,8 @@
                 </div>
                 <div class="monto"><span>Total:</span><span>₡${v.total.toLocaleString('es-CR')}</span></div>
                 ${creditoUsadoHTML}
+                ${copiasHTML}
+                ${referidoHTML}
                 ${bloqueDescargasHTML}
                 <button class="btn-print-ticket" onclick="imprimirVoucher('${v.id}')">Imprimir Recibo</button>
             `;
@@ -928,16 +1082,67 @@
     let _colaListos = [];
     let _procesandoCola = false;
 
-    function normalizarNombre(txt) {
+    function normalizarTexto(txt) {
         return (txt || "").trim().toLowerCase()
-            .normalize("NFD").replace(/[̀-ͯ]/g, "");
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     }
 
+    function normalizarTelefono(tel) {
+        return (tel || "").replace(/\D/g, "");
+    }
+
+    // Misma fórmula que usa la app de clientes, para que el crédito de
+    // un mismo cliente quede siempre bajo la misma llave en ambas apps.
+    function getClienteKey(nombreCliente, telefonoCliente) {
+        const nombreKey = normalizarTexto(nombreCliente);
+        const telKey = normalizarTelefono(telefonoCliente);
+        return telKey ? `${nombreKey}__${telKey}` : nombreKey;
+    }
+
+    function normalizarNombre(txt) {
+        return normalizarTexto(txt);
+    }
+
+    // Config de crédito y referidos: debe coincidir siempre con la app de clientes
     const CREDITO_CONFIG = {
         pedidosPorNivel: 10,
-        montosPorNivel: [100, 200, 300, 400, 500],
-        montoMaximo: 500
+        montosPorNivel: [100, 200, 300],
+        montoMaximo: 300
     };
+    const REFERIDO_CONFIG = {
+        montoReferente: 50,
+        montoReferido: 0
+    };
+
+    function generarCodigoDesdeNormalizados(nombreNorm, telNorm) {
+        const base = (nombreNorm.split(' ')[0] || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'AMIGO';
+        const sufijo = (telNorm || '').slice(-4) || '0000';
+        return base + sufijo;
+    }
+
+    function codigoDesdeClaveCliente(key) {
+        const partes = key.split('__');
+        return generarCodigoDesdeNormalizados(partes[0] || '', partes[1] || '');
+    }
+
+    function buscarClaveClientePorCodigo(clientesNube, codigo) {
+        const codigoBuscado = (codigo || '').trim().toUpperCase();
+        if (!codigoBuscado) return null;
+        for (const key in clientesNube) {
+            if (codigoDesdeClaveCliente(key) === codigoBuscado) return key;
+        }
+        return null;
+    }
+
+    // Nombre "bonito" para mostrar en pantalla a partir de la llave normalizada
+    // (la llave no guarda mayúsculas/acentos, así que solo se aproxima).
+    function nombreDesdeClave(key) {
+        const nombreNorm = key.split('__')[0] || '';
+        return nombreNorm.replace(/\b\w/g, c => c.toUpperCase());
+    }
+    function telefonoDesdeClave(key) {
+        return key.split('__')[1] || '';
+    }
 
     async function procesarColaListos() {
         if (_procesandoCola || _colaListos.length === 0) return;
@@ -959,15 +1164,34 @@
                 // Marcar listo
                 pedidoNube.listo = true;
 
-                // Sumar punto al cliente si tiene nombre y no fue ya contado
+                // Sumar punto al cliente si tiene nombre y no fue ya contado.
+                // "puntosContados" es una bandera compartida con la app de clientes:
+                // si cualquiera de las dos apps ya lo procesó, la otra no lo repite.
                 const nombreCliente = pedidoNube.cliente;
                 if (nombreCliente && !pedidoNube.puntosContados) {
                     pedidoNube.puntosContados = true;
-                    const key = normalizarNombre(nombreCliente);
+                    const key = getClienteKey(nombreCliente, pedidoNube.telefono);
                     if (!clientesNube[key]) clientesNube[key] = { pedidos: 0, credito: 0 };
                     clientesNube[key].pedidos = (clientesNube[key].pedidos || 0) + 1;
 
-                    // Ver si gana crédito
+                    // Recompensa por referido, solo en el primer pedido del referido
+                    if (clientesNube[key].pedidos === 1 && pedidoNube.codigoReferido && !clientesNube[key].referidoPagado) {
+                        const keyReferente = buscarClaveClientePorCodigo(clientesNube, pedidoNube.codigoReferido);
+                        if (keyReferente && keyReferente !== key) {
+                            if (!clientesNube[keyReferente]) clientesNube[keyReferente] = { pedidos: 0, credito: 0 };
+                            clientesNube[keyReferente].credito = Math.min(
+                                (clientesNube[keyReferente].credito || 0) + REFERIDO_CONFIG.montoReferente,
+                                CREDITO_CONFIG.montoMaximo
+                            );
+                            clientesNube[key].credito = Math.min(
+                                (clientesNube[key].credito || 0) + REFERIDO_CONFIG.montoReferido,
+                                CREDITO_CONFIG.montoMaximo
+                            );
+                        }
+                        clientesNube[key].referidoPagado = true;
+                    }
+
+                    // Ver si gana crédito por nivel
                     const totalPedidos = clientesNube[key].pedidos;
                     const nivel = Math.floor(totalPedidos / CREDITO_CONFIG.pedidosPorNivel);
                     if (nivel > 0 && totalPedidos % CREDITO_CONFIG.pedidosPorNivel === 0) {
@@ -1040,6 +1264,92 @@
         ticketDiv.classList.add('print-active');
         window.print();
         setTimeout(() => { ticketDiv.classList.remove('print-active'); }, 500);
+    }
+
+    // ── PANEL DE CLIENTES ─────────────────────────────────────────
+    let _clientesCache = {};
+
+    async function abrirPanelClientes() {
+        const overlay = document.getElementById('overlayClientes');
+        overlay.classList.add('visible');
+        document.getElementById('buscarCliente').value = '';
+        document.getElementById('listaClientes').innerHTML = '<div class="empty-msg">Cargando...</div>';
+        try {
+            const res = await fetch(`${FIREBASE_URL}/db.json`);
+            const record = await res.json() || {};
+            _clientesCache = (Array.isArray(record) ? {} : (record.clientes || {}));
+        } catch (e) {
+            _clientesCache = {};
+        }
+        renderizarListaClientes();
+        document.getElementById('buscarCliente').focus();
+    }
+
+    function cerrarPanelClientes() {
+        document.getElementById('overlayClientes').classList.remove('visible');
+    }
+
+    function renderizarListaClientes() {
+        const contenedor = document.getElementById('listaClientes');
+        const busqueda = normalizarTexto(document.getElementById('buscarCliente').value);
+
+        const claves = Object.keys(_clientesCache)
+            .filter(key => !busqueda || key.includes(busqueda))
+            .sort((a, b) => nombreDesdeClave(a).localeCompare(nombreDesdeClave(b)));
+
+        if (claves.length === 0) {
+            contenedor.innerHTML = '<div class="empty-msg">No se encontraron clientes.</div>';
+            return;
+        }
+
+        contenedor.innerHTML = claves.map(key => {
+            const c = _clientesCache[key];
+            const nombre = nombreDesdeClave(key);
+            const telefono = telefonoDesdeClave(key);
+            return `
+                <div class="fila-cliente">
+                    <div class="fila-cliente-info">
+                        <div class="fila-cliente-nombre">${nombre}</div>
+                        <div class="fila-cliente-datos">${telefono || 'sin teléfono'} · ${c.pedidos || 0} pedido(s)</div>
+                    </div>
+                    <div class="fila-cliente-credito">₡${(c.credito || 0).toLocaleString('es-CR')}</div>
+                    <div class="fila-cliente-acciones">
+                        <input type="number" class="input-ajuste-credito" id="ajuste-${key}" placeholder="₡" min="0">
+                        <button class="btn-ajuste-credito sumar" onclick="ajustarCreditoCliente('${key}', 1)" title="Agregar crédito">+</button>
+                        <button class="btn-ajuste-credito restar" onclick="ajustarCreditoCliente('${key}', -1)" title="Quitar crédito">−</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function ajustarCreditoCliente(key, signo) {
+        const input = document.getElementById(`ajuste-${key}`);
+        const monto = parseFloat(input.value) || 0;
+        if (monto <= 0) { alert("Escribí un monto en colones primero."); return; }
+
+        try {
+            const res = await fetch(`${FIREBASE_URL}/db.json`);
+            const record = await res.json() || {};
+            const esFormatoNuevo = !Array.isArray(record);
+            const pedidosNube = esFormatoNuevo ? (record.pedidos || []) : [];
+            const clientesNube = esFormatoNuevo ? (record.clientes || {}) : {};
+
+            if (!clientesNube[key]) clientesNube[key] = { pedidos: 0, credito: 0 };
+            clientesNube[key].credito = Math.max(0, (clientesNube[key].credito || 0) + (signo * monto));
+
+            await fetch(`${FIREBASE_URL}/db.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pedidos: pedidosNube, clientes: clientesNube })
+            });
+
+            _clientesCache = clientesNube;
+            input.value = '';
+            renderizarListaClientes();
+        } catch (e) {
+            alert("No se pudo guardar el ajuste de crédito. Revisá tu conexión.");
+        }
     }
 
     document.getElementById('cantidad').addEventListener('input', calcularPreciosBase);
