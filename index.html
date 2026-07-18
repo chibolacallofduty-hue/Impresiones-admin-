@@ -341,6 +341,21 @@
         }
         .btn-clientes:hover { background-color: #6d28d9; }
 
+        .btn-pausar {
+            background-color: #059669;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-pausar:hover { background-color: #047857; }
+        .btn-pausar.pausado {
+            background-color: #ef4444;
+        }
+        .btn-pausar.pausado:hover { background-color: #dc2626; }
+
         .overlay-clientes {
             display: none;
             position: fixed;
@@ -543,6 +558,7 @@
     <div class="caja-total-box">Ventas Hoy: <span id="montoCaja">₡0</span></div>
     
     <button class="btn-clientes" onclick="abrirPanelClientes()">👥 Clientes</button>
+    <button class="btn-pausar" id="btnPausar" onclick="togglePausarPedidos()">⏸️ Dejar de recibir pedidos</button>
     <button class="btn-theme" onclick="cambiarModo()">🌓 Cambiar Vista</button>
 </div>
 
@@ -681,6 +697,7 @@
         renderizarVouchers();
         calcularPreciosBase();
         iniciarEscuchaFirebaseTaller();
+        actualizarEstadoPausa();
 
         // CORRECCIÓN DE AUDIO: Fuerza la inicialización del canal al interactuar
         const forzarActivacionVoz = function() {
@@ -1388,6 +1405,48 @@
 
     // ── PANEL DE CLIENTES ─────────────────────────────────────────
     let _clientesCache = {};
+
+    // ── PAUSAR RECEPCIÓN DE PEDIDOS ───────────────────────────────
+    async function actualizarEstadoPausa() {
+        try {
+            const res = await fetch(`${FIREBASE_URL}/pausado.json`);
+            const pausado = await res.json();
+            pintarBotonPausa(!!pausado);
+        } catch (e) {}
+    }
+
+    function pintarBotonPausa(pausado) {
+        const btn = document.getElementById('btnPausar');
+        if (pausado) {
+            btn.textContent = '▶️ Volver a recibir pedidos';
+            btn.classList.add('pausado');
+        } else {
+            btn.textContent = '⏸️ Dejar de recibir pedidos';
+            btn.classList.remove('pausado');
+        }
+    }
+
+    async function togglePausarPedidos() {
+        try {
+            const res = await fetch(`${FIREBASE_URL}/pausado.json`);
+            const pausadoActual = !!(await res.json());
+            const nuevoEstado = !pausadoActual;
+
+            const mensaje = nuevoEstado
+                ? "¿Dejar de recibir pedidos nuevos? Los clientes van a ver un aviso y no van a poder enviar pedidos hasta que lo actives de nuevo."
+                : "¿Volver a recibir pedidos? Los clientes van a poder enviar pedidos otra vez.";
+            if (!confirm(mensaje)) return;
+
+            await fetch(`${FIREBASE_URL}/pausado.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(nuevoEstado)
+            });
+            pintarBotonPausa(nuevoEstado);
+        } catch (e) {
+            alert("No se pudo cambiar el estado. Revisá tu conexión.");
+        }
+    }
 
     let _clientesSSE = null;
 
