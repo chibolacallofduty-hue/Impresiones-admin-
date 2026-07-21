@@ -508,6 +508,124 @@
             100% { background: var(--card-bg); }
         }
 
+        /* ── Botón y panel de "Transferencias" (Pasar tu Crédito) ─────── */
+        .btn-transferencias-wrapper { position: relative; display: inline-block; }
+        .btn-transferencias {
+            background-color: #0f172a;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-transferencias:hover { background-color: #1e293b; }
+        [data-theme="dark"] .btn-transferencias { background-color: #334155; }
+        [data-theme="dark"] .btn-transferencias:hover { background-color: #475569; }
+
+        .overlay-transferencias {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 100;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 30px 15px;
+            overflow-y: auto;
+        }
+        .overlay-transferencias.visible { display: flex; }
+
+        .panel-transferencias {
+            background: var(--panel-bg);
+            color: var(--text-dark);
+            border-radius: 14px;
+            width: 100%;
+            max-width: 620px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        .panel-transferencias-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .panel-transferencias-header h2 { margin: 0; font-size: 1.15rem; }
+        .panel-transferencias-sub { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px; }
+
+        .filtro-transferencias {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .filtro-transferencias button {
+            flex: 1;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+        .filtro-transferencias button.activo {
+            background: var(--brand-color);
+            color: #fff;
+            border-color: var(--brand-color);
+        }
+
+        .fila-transferencia {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px;
+            border-radius: 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .fila-transferencia.revisar {
+            border: 1.5px solid #ef4444;
+            background: rgba(239, 68, 68, 0.06);
+        }
+        .fila-transferencia-info { flex: 1; min-width: 180px; }
+        .fila-transferencia-titulo { font-weight: 700; font-size: 0.9rem; }
+        .fila-transferencia-datos { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+        .fila-transferencia-alerta {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 0.68rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 999px;
+            margin-top: 4px;
+        }
+        .fila-transferencia-monto { font-weight: 800; color: #4f46e5; font-size: 0.92rem; white-space: nowrap; }
+        .btn-marcar-revisada {
+            background: #059669;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 7px 10px;
+            font-weight: 700;
+            font-size: 0.76rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-marcar-revisada:hover { background: #047857; }
+        .etiqueta-revisada {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
         .fila-cliente.bloqueado {
             background: #fef2f2;
             border-color: #fecaca;
@@ -682,6 +800,10 @@
     <div class="caja-total-box">Ventas Hoy: <span id="montoCaja">₡0</span></div>
     
     <button class="btn-clientes" onclick="abrirPanelClientes()">👥 Clientes</button>
+    <div class="btn-transferencias-wrapper">
+        <button class="btn-transferencias" onclick="abrirPanelTransferencias()">🔒 Transferencias</button>
+        <span class="badge-pedidos" id="badgeTransferencias">0</span>
+    </div>
     <button class="btn-pausar" id="btnPausar" onclick="togglePausarPedidos()">⏸️ Dejar de recibir pedidos</button>
     <button class="btn-theme" onclick="cambiarModo()">🌓 Cambiar Vista</button>
 </div>
@@ -701,6 +823,23 @@
         </div>
 
         <div id="listaClientes"><div class="empty-msg">Cargando...</div></div>
+    </div>
+</div>
+
+<div class="overlay-transferencias" id="overlayTransferencias" onclick="if(event.target===this) cerrarPanelTransferencias()">
+    <div class="panel-transferencias">
+        <div class="panel-transferencias-header">
+            <h2>🔒 Transferencias de Crédito</h2>
+            <button class="btn-cerrar-clientes" onclick="cerrarPanelTransferencias()">×</button>
+        </div>
+        <div class="panel-transferencias-sub">Movimientos de "Pasar tu Crédito" entre clientes. Las marcadas en rojo salieron de un dispositivo no reconocido y conviene revisarlas.</div>
+
+        <div class="filtro-transferencias">
+            <button type="button" id="btnFiltroRevisar" class="activo" onclick="cambiarFiltroTransferencias('revisar')">⚠️ Por revisar</button>
+            <button type="button" id="btnFiltroTodas" onclick="cambiarFiltroTransferencias('todas')">Todas</button>
+        </div>
+
+        <div id="listaTransferencias"><div class="empty-msg">Cargando...</div></div>
     </div>
 </div>
 
@@ -780,6 +919,10 @@
     let precioFinalGlobal = 0;
     let historialVouchers = [];
     let ultimoConteoPendientes = 0;
+    let ultimoConteoRevisarTransferencias = 0;
+    let _transferenciasCache = [];
+    let _transferenciasSSE = null;
+    let _filtroTransferencias = 'revisar';
 
     // Configuración de CallMeBot: envía un WhatsApp automático cuando llega un pedido nuevo
     const CALLMEBOT_CONFIG = {
@@ -914,6 +1057,37 @@
             btnNube.classList.remove('btn-alerta-parpadeo');
         }
         ultimoConteoPendientes = pendientes.length;
+
+        // Transferencias de crédito entre clientes ("Pasar tu Crédito"): no
+        // usan estado "Pendiente", así que se procesan aparte acá para que
+        // el botón 🔒 Transferencias siempre refleje lo que hay pendiente
+        // de revisar, esté o no abierto el panel.
+        actualizarBadgeTransferencias(pedidosNube);
+    }
+
+    function actualizarBadgeTransferencias(pedidosNube) {
+        const porRevisar = pedidosNube.filter(p =>
+            p.tipoMovimiento === 'transferencia_credito' && p.requiereRevision && !p.revisadoAdmin
+        );
+        const badge = document.getElementById('badgeTransferencias');
+        const btn = document.querySelector('.btn-transferencias');
+        if (!badge || !btn) return;
+
+        if (porRevisar.length > 0) {
+            badge.textContent = porRevisar.length;
+            badge.style.display = "flex";
+            btn.classList.add('btn-alerta-parpadeo');
+            if (porRevisar.length > ultimoConteoRevisarTransferencias) {
+                emitirNotificacionVoz();
+                enviarAlertaWhatsApp(
+                    "Atención: hay una transferencia de crédito desde un dispositivo no reconocido esperando revisión. Total por revisar: " + porRevisar.length + "."
+                );
+            }
+        } else {
+            badge.style.display = "none";
+            btn.classList.remove('btn-alerta-parpadeo');
+        }
+        ultimoConteoRevisarTransferencias = porRevisar.length;
     }
 
     function iniciarEscuchaFirebaseTaller() {
@@ -1594,6 +1768,116 @@
     }
 
     let _clientesSSE = null;
+
+    // ── Panel de Transferencias de Crédito ("Pasar tu Crédito") ──────────
+    async function abrirPanelTransferencias() {
+        const overlay = document.getElementById('overlayTransferencias');
+        overlay.classList.add('visible');
+        document.getElementById('listaTransferencias').innerHTML = '<div class="empty-msg">Cargando...</div>';
+        try {
+            const res = await fetch(`${FIREBASE_URL}/db.json`);
+            const record = await res.json() || {};
+            const pedidosNube = Array.isArray(record) ? record : (record.pedidos || []);
+            _transferenciasCache = pedidosNube.filter(p => p.tipoMovimiento === 'transferencia_credito');
+        } catch (e) {
+            _transferenciasCache = [];
+        }
+        renderizarListaTransferencias();
+
+        // Mantener el panel actualizado en tiempo real mientras esté abierto
+        if (_transferenciasSSE) _transferenciasSSE.close();
+        _transferenciasSSE = new EventSource(`${FIREBASE_URL}/db.json`);
+        const refrescarPanel = async () => {
+            try {
+                const res = await fetch(`${FIREBASE_URL}/db.json`);
+                const record = await res.json() || {};
+                const pedidosNube = Array.isArray(record) ? record : (record.pedidos || []);
+                _transferenciasCache = pedidosNube.filter(p => p.tipoMovimiento === 'transferencia_credito');
+                renderizarListaTransferencias();
+            } catch (e) {}
+        };
+        _transferenciasSSE.addEventListener('put', refrescarPanel);
+        _transferenciasSSE.addEventListener('patch', refrescarPanel);
+    }
+
+    function cerrarPanelTransferencias() {
+        document.getElementById('overlayTransferencias').classList.remove('visible');
+        if (_transferenciasSSE) { _transferenciasSSE.close(); _transferenciasSSE = null; }
+    }
+
+    function cambiarFiltroTransferencias(modo) {
+        _filtroTransferencias = modo;
+        document.getElementById('btnFiltroRevisar').classList.toggle('activo', modo === 'revisar');
+        document.getElementById('btnFiltroTodas').classList.toggle('activo', modo === 'todas');
+        renderizarListaTransferencias();
+    }
+
+    function renderizarListaTransferencias() {
+        const contenedor = document.getElementById('listaTransferencias');
+        let lista = _transferenciasCache.slice().sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+
+        if (_filtroTransferencias === 'revisar') {
+            lista = lista.filter(p => p.requiereRevision && !p.revisadoAdmin);
+        }
+
+        if (lista.length === 0) {
+            contenedor.innerHTML = _filtroTransferencias === 'revisar'
+                ? '<div class="empty-msg">No hay transferencias pendientes de revisar. 🎉</div>'
+                : '<div class="empty-msg">Todavía no hay transferencias registradas.</div>';
+            return;
+        }
+
+        contenedor.innerHTML = lista.map(p => {
+            const pendienteRevision = p.requiereRevision && !p.revisadoAdmin;
+            const alertaHTML = pendienteRevision
+                ? `<div class="fila-transferencia-alerta">⚠️ ${p.motivoRevision || 'Revisar'}</div>`
+                : (p.requiereRevision ? '<div class="etiqueta-revisada">✅ Ya revisada</div>' : '');
+            const accionHTML = pendienteRevision
+                ? `<button class="btn-marcar-revisada" onclick="marcarTransferenciaRevisada('${p.id}')">Marcar revisada</button>`
+                : '';
+
+            return `
+                <div class="fila-transferencia ${pendienteRevision ? 'revisar' : ''}">
+                    <div class="fila-transferencia-info">
+                        <div class="fila-transferencia-titulo">${p.cliente || '—'} → ${p.clienteDestino || '—'}</div>
+                        <div class="fila-transferencia-datos">${p.telefono || ''} → ${p.telefonoDestino || ''} · ${p.fecha || ''} ${p.hora || ''}</div>
+                        ${alertaHTML}
+                    </div>
+                    <div class="fila-transferencia-monto">₡${(p.monto || 0).toLocaleString('es-CR')}</div>
+                    ${accionHTML}
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function marcarTransferenciaRevisada(id) {
+        try {
+            const res = await fetch(`${FIREBASE_URL}/db.json`);
+            const record = await res.json() || {};
+            const esFormatoNuevo = !Array.isArray(record);
+            const pedidosNube = esFormatoNuevo ? (record.pedidos || []) : [];
+            const clientesNube = esFormatoNuevo ? (record.clientes || {}) : {};
+
+            const pedido = pedidosNube.find(p => p.id === id);
+            if (!pedido) {
+                alert("No se encontró esa transferencia (puede que ya se haya actualizado).");
+                return;
+            }
+            pedido.revisadoAdmin = true;
+
+            await fetch(`${FIREBASE_URL}/db.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pedidos: pedidosNube, clientes: clientesNube })
+            });
+
+            _transferenciasCache = pedidosNube.filter(p => p.tipoMovimiento === 'transferencia_credito');
+            renderizarListaTransferencias();
+            actualizarBadgeTransferencias(pedidosNube);
+        } catch (e) {
+            alert("No se pudo marcar la transferencia como revisada. Revisá tu conexión.");
+        }
+    }
 
     async function abrirPanelClientes() {
         const overlay = document.getElementById('overlayClientes');
