@@ -659,6 +659,18 @@
             cursor: pointer;
             padding: 2px 4px;
         }
+        .btn-reset-transferencias {
+            background: none;
+            border: none;
+            font-size: 1.05rem;
+            cursor: pointer;
+            padding: 2px 4px;
+        }
+        .fila-cliente-transferencias {
+            font-size: 0.76rem;
+            color: #4f46e5;
+            font-weight: 700;
+        }
         .panel-historial-credito {
             display: none;
             width: 100%;
@@ -1934,6 +1946,8 @@
             const nombre = nombreDesdeClave(key);
             const telefono = telefonoDesdeClave(key);
             const historial = c.historial || [];
+            const hoyStr = new Date().toLocaleDateString('es-CR');
+            const transferenciasHoy = (c.transferenciasHoy && c.transferenciasHoy.fecha === hoyStr) ? (c.transferenciasHoy.cantidad || 0) : 0;
             const historialHTML = historial.length
                 ? historial.slice().reverse().map(h => `
                     <div class="fila-historial-item">
@@ -1948,6 +1962,7 @@
                     <div class="fila-cliente-info">
                         <div class="fila-cliente-nombre">${nombre}${c.bloqueado ? '<span class="badge-bloqueado">BLOQUEADO</span>' : ''}</div>
                         <div class="fila-cliente-datos">${telefono || 'sin teléfono'} · ${c.pedidos || 0} pedido(s)</div>
+                        ${transferenciasHoy > 0 ? `<div class="fila-cliente-transferencias">💸 ${transferenciasHoy} transferencia(s) hoy</div>` : ''}
                     </div>
                     <div class="fila-cliente-credito" id="credito-${key}">₡${(c.credito || 0).toLocaleString('es-CR')}</div>
                     <div class="fila-cliente-acciones">
@@ -1955,6 +1970,7 @@
                         <button class="btn-ajuste-credito sumar" onclick="ajustarCreditoCliente('${key}', 1)" title="Agregar crédito">+</button>
                         <button class="btn-ajuste-credito restar" onclick="ajustarCreditoCliente('${key}', -1)" title="Quitar crédito">−</button>
                         <button class="btn-historial-cliente" onclick="toggleHistorialCliente('${key}')" title="Ver historial de crédito">📜</button>
+                        <button class="btn-reset-transferencias" onclick="resetearTransferenciasCliente('${key}')" title="Resetear límite de transferencias de hoy">🔄</button>
                         <button class="btn-bloquear-cliente" onclick="toggleBloqueoCliente('${key}')" title="${c.bloqueado ? 'Desbloquear cliente' : 'Bloquear cliente'}">${c.bloqueado ? '✅' : '🚫'}</button>
                         <button class="btn-borrar-cliente" onclick="borrarCliente('${key}')" title="Eliminar cliente">🗑️</button>
                     </div>
@@ -1996,6 +2012,36 @@
             renderizarListaClientes();
         } catch (e) {
             alert("No se pudo cambiar el bloqueo del cliente. Revisá tu conexión.");
+        }
+    }
+
+    // Resetea el contador de transferencias de hoy de un cliente (el límite
+    // de "Pasar tu Crédito" en la app), por si necesita hacer más envíos
+    // aunque ya haya llegado a su límite diario.
+    async function resetearTransferenciasCliente(key) {
+        const nombre = nombreDesdeClave(key);
+        if (!confirm(`¿Resetear el contador de transferencias de hoy de "${nombre}"? Va a poder volver a transferir crédito aunque ya haya llegado a su límite diario.`)) return;
+
+        try {
+            const res = await fetch(`${FIREBASE_URL}/db.json`);
+            const record = await res.json() || {};
+            const esFormatoNuevo = !Array.isArray(record);
+            const pedidosNube = esFormatoNuevo ? (record.pedidos || []) : [];
+            const clientesNube = esFormatoNuevo ? (record.clientes || {}) : {};
+
+            if (!clientesNube[key]) clientesNube[key] = { pedidos: 0, credito: 0 };
+            clientesNube[key].transferenciasHoy = { fecha: new Date().toLocaleDateString('es-CR'), cantidad: 0 };
+
+            await fetch(`${FIREBASE_URL}/db.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pedidos: pedidosNube, clientes: clientesNube })
+            });
+
+            _clientesCache = clientesNube;
+            renderizarListaClientes();
+        } catch (e) {
+            alert("No se pudo resetear el contador de transferencias. Revisá tu conexión.");
         }
     }
 
